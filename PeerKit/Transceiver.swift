@@ -20,6 +20,10 @@ public class Transceiver: SessionDelegate {
     let advertiser: Advertiser
     let browser: Browser
 
+    // Values used when advertising. save so that we can easily restart after a disconnect
+    var serviceType : String?
+    var discoveryInfo: [String: String]?
+    
     public init(displayName: String!) {
         session = Session(displayName: displayName, delegate: nil)
         advertiser = Advertiser(mcSession: session.mcSession)
@@ -31,6 +35,9 @@ public class Transceiver: SessionDelegate {
         advertiser.startAdvertising(serviceType: serviceType, discoveryInfo: discoveryInfo)
         browser.startBrowsing(serviceType: serviceType)
         transceiverMode = .Both
+        
+        self.serviceType = serviceType
+        self.discoveryInfo = discoveryInfo
     }
 
     func stopTransceiving() {
@@ -43,11 +50,20 @@ public class Transceiver: SessionDelegate {
     func startAdvertising(serviceType: String, discoveryInfo: [String: String]? = nil) {
         advertiser.startAdvertising(serviceType: serviceType, discoveryInfo: discoveryInfo)
         transceiverMode = .Advertise
+        
+        self.serviceType = serviceType
+        self.discoveryInfo = discoveryInfo
     }
 
     func startBrowsing(serviceType: String) {
         browser.startBrowsing(serviceType: serviceType)
         transceiverMode = .Browse
+    }
+
+    func restartAdvertising() {
+        if let serviceType = self.serviceType {
+            advertiser.startAdvertising(serviceType: serviceType, discoveryInfo: self.discoveryInfo)
+        }
     }
 
     public func connecting(myPeerID: MCPeerID, toPeer peer: MCPeerID) {
@@ -60,6 +76,11 @@ public class Transceiver: SessionDelegate {
 
     public func disconnected(myPeerID: MCPeerID, fromPeer peer: MCPeerID) {
         didDisconnect(myPeerID: myPeerID, peer: peer)
+        
+        // restart advertising
+        if (transceiverMode == .Advertise || transceiverMode == .Both) {
+            self.restartAdvertising()
+        }
     }
 
     public func receivedData(myPeerID: MCPeerID, data: Data, fromPeer peer: MCPeerID) {
